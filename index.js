@@ -1,21 +1,20 @@
-// index.js complet modificat ca sa deserveasca si imaginile:
-
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 app.use(express.json());
 
-const allowedOrigin = "https://willowy-tapioca-e99011.netlify.app"; // <-- aici setezi domeniul frontend
+const allowedOrigin = "https://willowy-tapioca-e99011.netlify.app";
 
-// CORS pentru frontend
 app.use(cors({
   origin: allowedOrigin,
   credentials: true
 }));
 
-// Route pentru scraping (forward POST request)
+// Redirecționare pentru scraping
 app.post('/scrape', async (req, res) => {
   try {
     const response = await fetch('http://139.59.140.159:8000/scrape', {
@@ -27,32 +26,40 @@ app.post('/scrape', async (req, res) => {
     const data = await response.json();
     res.status(200).json(data);
   } catch (error) {
-    console.error('Error forwarding /scrape request:', error);
-    res.status(500).json({ error: 'Failed to forward /scrape request' });
+    console.error('Error forwarding request:', error);
+    res.status(500).json({ error: 'Failed to forward request' });
   }
 });
 
-// Route pentru IMAGINI (forward GET image request)
+// Redirecționare pentru imagini
 app.get('/images/:filename', async (req, res) => {
   const { filename } = req.params;
-
   try {
-    const imageResponse = await fetch(`http://139.59.140.159:8000/images/${filename}`);
-
-    if (!imageResponse.ok) {
-      return res.status(404).send('Image not found');
-    }
-
-    res.setHeader('Content-Type', imageResponse.headers.get('Content-Type') || 'image/png');
-    const buffer = await imageResponse.arrayBuffer();
-    res.send(Buffer.from(buffer));
+    const response = await fetch(`http://139.59.140.159:8000/images/${filename}`);
+    const buffer = await response.buffer();
+    res.set('Content-Type', 'image/png');
+    res.send(buffer);
   } catch (error) {
-    console.error('Error forwarding /images request:', error);
+    console.error('Error fetching image:', error);
     res.status(500).send('Failed to fetch image');
   }
 });
 
-// Pornim serverul
+// Redirecționare pentru download CSV
+app.get('/download', async (req, res) => {
+  const { song, artist } = req.query;
+  try {
+    const response = await fetch(`http://139.59.140.159:8000/download?song=${encodeURIComponent(song)}&artist=${encodeURIComponent(artist)}`);
+    const buffer = await response.buffer();
+    res.set('Content-Type', 'text/csv');
+    res.set('Content-Disposition', `attachment; filename="${song}_${artist}_tiktok.csv"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error fetching CSV:', error);
+    res.status(500).send('Failed to fetch CSV');
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
